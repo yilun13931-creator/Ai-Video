@@ -22,7 +22,7 @@ app.add_middleware(
 # ==========================================
 # 🔑 系統核心設定區
 # ==========================================
-# 請將這裡替換為您的 Kie.ai API Key
+# 您的專屬 API Key 已自動帶入
 KIE_API_KEY = "938b4121855a024f149ecdb79143d4ab" 
 KIE_BASE_URL = "https://api.kie.ai"
 
@@ -31,7 +31,6 @@ KIE_BASE_URL = "https://api.kie.ai"
 # ==========================================
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-# 將 uploads 資料夾公開，讓 Kie.ai 能讀取到圖片
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # ==========================================
@@ -44,23 +43,25 @@ async def generate_video(
     prompt: str = Form(...)
 ):
     try:
-        # 1. 儲存圖片至伺服器端
-        file_ext = image.filename.split(".")[-1] if "." in image.filename else "jpg"
-        unique_filename = f"img_{int(time.time())}.{file_ext}"
+        # 1. 儲存圖片至伺服器端 (強制純英文命名，避開交接文檔中的中文檔名 500 報錯地雷)
+        unique_filename = f"img_{int(time.time())}.jpg"
         file_path = os.path.join(UPLOAD_DIR, unique_filename)
         
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(image.file, buffer)
             
-        # 2. 自動合成 Render 上的公開網址 (例如 https://your-app.onrender.com/uploads/img_xxx.jpg)
-        public_image_url = f"{request.base_url}uploads/{unique_filename}"
+        # 2. 自動合成 Render 上的公開網址 (強制抓取 https 協議，避免 Render 代理層生成 http 導致 API 拒絕讀取)
+        scheme = request.headers.get("x-forwarded-proto", "https")
+        host = request.url.netloc
+        public_image_url = f"{scheme}://{host}/uploads/{unique_filename}"
 
-        # 3. 發送帶有真實網址的請求給 Kie.ai
+        # 3. 發送請求給 Kie.ai
         headers = {
             "Authorization": f"Bearer {KIE_API_KEY}",
             "Content-Type": "application/json"
         }
         
+        # 💡 終極優化：移除 aspect_ratio (遵守官方文件單圖規則)，並將 resolution 提升至 720p！
         payload = {
             "model": "grok-imagine/image-to-video",
             "input": {
@@ -68,8 +69,7 @@ async def generate_video(
                 "prompt": prompt,
                 "mode": "normal",
                 "duration": "15",
-                "resolution": "480p",
-                "aspect_ratio": "9:16"
+                "resolution": "720p"  # 升級為高畫質
             }
         }
 

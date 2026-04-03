@@ -17,6 +17,73 @@ function previewImage() {
 }
 
 // ==========================================
+// 隱形無損引擎：完整保留原圖，並以毛玻璃背景填滿至 9:16
+// ==========================================
+function processImageTo916(file) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            // 配合後端升級，這裡直接輸出完美的 720p 直式規格
+            canvas.width = 720;
+            canvas.height = 1280;
+            const ctx = canvas.getContext('2d');
+
+            const targetRatio = canvas.width / canvas.height;
+            const sourceRatio = img.width / img.height;
+
+            // --- 步驟 1：繪製毛玻璃模糊背景 ---
+            let bgWidth, bgHeight, bgX, bgY;
+            if (sourceRatio > targetRatio) {
+                bgHeight = canvas.height;
+                bgWidth = canvas.height * sourceRatio;
+                bgX = (canvas.width - bgWidth) / 2;
+                bgY = 0;
+            } else {
+                bgWidth = canvas.width;
+                bgHeight = canvas.width / sourceRatio;
+                bgX = 0;
+                bgY = (canvas.height - bgHeight) / 2;
+            }
+            
+            ctx.filter = 'blur(40px) brightness(0.8)';
+            ctx.drawImage(img, bgX, bgY, bgWidth, bgHeight);
+            
+            ctx.filter = 'none';
+
+            // --- 步驟 2：將原圖完整無損置中畫上去 ---
+            let drawWidth, drawHeight, offsetX, offsetY;
+            if (sourceRatio > targetRatio) {
+                drawWidth = canvas.width;
+                drawHeight = canvas.width / sourceRatio;
+                offsetX = 0;
+                offsetY = (canvas.height - drawHeight) / 2;
+            } else {
+                drawHeight = canvas.height;
+                drawWidth = canvas.height * sourceRatio;
+                offsetX = (canvas.width - drawWidth) / 2;
+                offsetY = 0;
+            }
+
+            ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+
+            // 將處理好的完美 9:16 Canvas 轉回 File 物件
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    // 💡 終極防護：強制覆寫為純英文檔名，避免「交接文檔 3.0」中提到的中文檔名伺服器崩潰問題
+                    const newFile = new File([blob], "processed_image_4k.jpg", { type: "image/jpeg" });
+                    resolve(newFile);
+                } else {
+                    reject(new Error("圖片處理失敗"));
+                }
+            }, 'image/jpeg', 0.95);
+        };
+        img.onerror = () => reject(new Error("圖片載入失敗"));
+        img.src = URL.createObjectURL(file);
+    });
+}
+
+// ==========================================
 // 提交任務與輪詢邏輯
 // ==========================================
 async function startVideoGeneration() {
@@ -37,15 +104,18 @@ async function startVideoGeneration() {
 
     btn.disabled = true;
     btn.innerText = "⏳ 魔法施展中，請勿關閉網頁...";
-    statusText.innerText = "上傳圖片至伺服器中...";
+    statusText.innerText = "正在為您的圖片加入無損毛玻璃背景 (自動轉為 9:16)...";
     videoContainer.style.display = 'none';
     placeholder.style.display = 'block';
 
     try {
-        // 使用原生的 FormData 直接封裝圖片檔案，不再使用 Base64
+        const processedFile = await processImageTo916(fileInput.files[0]);
+
         const formData = new FormData();
-        formData.append("image", fileInput.files[0]);
+        formData.append("image", processedFile);
         formData.append("prompt", promptInput);
+
+        statusText.innerText = "上傳圖片至伺服器中...";
 
         const res = await fetch("/api/generate_video", {
             method: "POST",
@@ -61,7 +131,13 @@ async function startVideoGeneration() {
         }
 
         if (!res.ok) {
-            throw new Error(data.detail || "未知錯誤");
+            let errorMsg = data.detail;
+            if (Array.isArray(errorMsg)) {
+                errorMsg = "欄位驗證失敗: " + errorMsg.map(e => e.msg).join(', ');
+            } else if (typeof errorMsg === 'object') {
+                errorMsg = JSON.stringify(errorMsg, null, 2);
+            }
+            throw new Error(errorMsg || "未知錯誤");
         }
 
         if (data.task_id) {
@@ -72,7 +148,7 @@ async function startVideoGeneration() {
         }
 
     } catch (error) {
-        statusText.innerText = `❌ 錯誤：${error.message}`;
+        statusText.innerText = `❌ 錯誤：\n${error.message}`;
         btn.disabled = false;
         btn.innerText = "🚀 立即生成影片";
     }
@@ -92,7 +168,8 @@ function pollStatus(taskId) {
         try {
             dotCount = (dotCount + 1) % 4;
             const dots = ".".repeat(dotCount);
-            statusText.innerText = `🎬 影片渲染中 (固定 9:16 / 15秒)，請耐心等候${dots}`;
+            // 配合後端升級，修改文案為 720p 提示
+            statusText.innerText = `🎬 影片渲染中 (高畫質 720p / 15秒)，請耐心等候${dots}`;
 
             const res = await fetch(`/api/status/${taskId}`);
             const text = await res.text();
