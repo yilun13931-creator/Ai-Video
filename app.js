@@ -1,5 +1,5 @@
 // ==========================================
-// 處理圖片預覽與前端自動 Base64 壓縮
+// 處理圖片預覽
 // ==========================================
 function previewImage() {
     const fileInput = document.getElementById('imageInput');
@@ -14,41 +14,6 @@ function previewImage() {
         }
         reader.readAsDataURL(file);
     }
-}
-
-async function compressImageToBase64(file, maxWidth = 1024, maxHeight = 1024) {
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new Image();
-            img.src = event.target.result;
-            img.onload = () => {
-                let width = img.width;
-                let height = img.height;
-
-                if (width > height) {
-                    if (width > maxWidth) {
-                        height = Math.round((height * maxWidth) / width);
-                        width = maxWidth;
-                    }
-                } else {
-                    if (height > maxHeight) {
-                        width = Math.round((width * maxHeight) / height);
-                        height = maxHeight;
-                    }
-                }
-
-                const canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-                // 轉為 Base64 包含 MIME type (API 需要)
-                resolve(canvas.toDataURL('image/jpeg', 0.8));
-            };
-        };
-    });
 }
 
 // ==========================================
@@ -72,33 +37,27 @@ async function startVideoGeneration() {
 
     btn.disabled = true;
     btn.innerText = "⏳ 魔法施展中，請勿關閉網頁...";
-    statusText.innerText = "正在壓縮圖片並上傳至 AI 大腦...";
+    statusText.innerText = "上傳圖片至伺服器中...";
     videoContainer.style.display = 'none';
     placeholder.style.display = 'block';
 
     try {
-        // 1. 圖片轉 Base64
-        const imageB64 = await compressImageToBase64(fileInput.files[0]);
-
-        // 2. 發送給後端
-        const payload = {
-            image_b64: imageB64,
-            prompt: promptInput
-        };
+        // 使用原生的 FormData 直接封裝圖片檔案，不再使用 Base64
+        const formData = new FormData();
+        formData.append("image", fileInput.files[0]);
+        formData.append("prompt", promptInput);
 
         const res = await fetch("/api/generate_video", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
+            body: formData
         });
 
-        // 🛡️ 新增保護機制：先將回應轉為純文字，避免直接 json() 解析失敗報錯
         const responseText = await res.text();
         let data;
         try {
             data = JSON.parse(responseText);
         } catch (jsonError) {
-            throw new Error(`伺服器或路由異常 (狀態碼: ${res.status}): ${responseText.substring(0, 80)}... \n👉 請確認您是透過 Render 網址訪問，而非直接點擊本地 HTML 檔案。`);
+            throw new Error(`伺服器異常 (狀態碼: ${res.status}): ${responseText.substring(0, 80)}...`);
         }
 
         if (!res.ok) {
@@ -142,7 +101,6 @@ function pollStatus(taskId) {
             try {
                 data = JSON.parse(text);
             } catch (e) {
-                // 若遇到暫時性的 502/504 錯誤，忽略並繼續等待下次輪詢
                 return;
             }
 
@@ -150,13 +108,11 @@ function pollStatus(taskId) {
                 clearInterval(interval);
                 statusText.innerText = "🎉 影片生成完成！";
                 
-                // 顯示影片
                 resultVideo.src = data.video_url;
                 downloadBtn.href = data.video_url;
                 placeholder.style.display = 'none';
                 videoContainer.style.display = 'flex';
                 
-                // 恢復按鈕
                 btn.disabled = false;
                 btn.innerText = "✨ 再做一部影片";
 
@@ -167,8 +123,7 @@ function pollStatus(taskId) {
                 btn.innerText = "🚀 重新嘗試";
             }
         } catch (error) {
-            // 遇到網路抖動不中斷，繼續輪詢
             console.log("輪詢暫時中斷，等待下次重試...", error);
         }
-    }, 8000); // 每 8 秒查一次，完美避開 Timeout
+    }, 8000);
 }
