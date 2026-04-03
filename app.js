@@ -24,7 +24,6 @@ function processImageTo916(file) {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            // 配合後端升級，這裡直接輸出完美的 720p 直式規格
             canvas.width = 720;
             canvas.height = 1280;
             const ctx = canvas.getContext('2d');
@@ -67,10 +66,8 @@ function processImageTo916(file) {
 
             ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
 
-            // 將處理好的完美 9:16 Canvas 轉回 File 物件
             canvas.toBlob((blob) => {
                 if (blob) {
-                    // 💡 終極防護：強制覆寫為純英文檔名，避免「交接文檔 3.0」中提到的中文檔名伺服器崩潰問題
                     const newFile = new File([blob], "processed_image_4k.jpg", { type: "image/jpeg" });
                     resolve(newFile);
                 } else {
@@ -168,7 +165,6 @@ function pollStatus(taskId) {
         try {
             dotCount = (dotCount + 1) % 4;
             const dots = ".".repeat(dotCount);
-            // 配合後端升級，修改文案為 720p 提示
             statusText.innerText = `🎬 影片渲染中 (高畫質 720p / 15秒)，請耐心等候${dots}`;
 
             const res = await fetch(`/api/status/${taskId}`);
@@ -185,8 +181,12 @@ function pollStatus(taskId) {
                 clearInterval(interval);
                 statusText.innerText = "🎉 影片生成完成！";
                 
+                // 畫面預覽直接讀取 Kie.ai 的雲端網址
                 resultVideo.src = data.video_url;
-                downloadBtn.href = data.video_url;
+                
+                // 💡 終極升級：下載按鈕綁定我們的後端代理，強制觸發檔案下載，而非開新網頁
+                downloadBtn.href = `/api/download_video?url=${encodeURIComponent(data.video_url)}`;
+                
                 placeholder.style.display = 'none';
                 videoContainer.style.display = 'flex';
                 
