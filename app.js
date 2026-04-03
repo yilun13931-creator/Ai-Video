@@ -92,7 +92,18 @@ async function startVideoGeneration() {
             body: JSON.stringify(payload)
         });
 
-        const data = await res.json();
+        // 🛡️ 新增保護機制：先將回應轉為純文字，避免直接 json() 解析失敗報錯
+        const responseText = await res.text();
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (jsonError) {
+            throw new Error(`伺服器或路由異常 (狀態碼: ${res.status}): ${responseText.substring(0, 80)}... \n👉 請確認您是透過 Render 網址訪問，而非直接點擊本地 HTML 檔案。`);
+        }
+
+        if (!res.ok) {
+            throw new Error(data.detail || "未知錯誤");
+        }
 
         if (data.task_id) {
             statusText.innerText = "✅ 任務已啟動！AI 正在進行算圖，約需 2~5 分鐘...";
@@ -122,10 +133,18 @@ function pollStatus(taskId) {
         try {
             dotCount = (dotCount + 1) % 4;
             const dots = ".".repeat(dotCount);
-            statusText.innerText = `🎬 影片渲染中，請耐心等候${dots}`;
+            statusText.innerText = `🎬 影片渲染中 (固定 9:16 / 15秒)，請耐心等候${dots}`;
 
             const res = await fetch(`/api/status/${taskId}`);
-            const data = await res.json();
+            const text = await res.text();
+            
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                // 若遇到暫時性的 502/504 錯誤，忽略並繼續等待下次輪詢
+                return;
+            }
 
             if (data.status === "completed") {
                 clearInterval(interval);

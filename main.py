@@ -40,27 +40,32 @@ async def generate_video(req: VideoGenerateRequest):
             "Content-Type": "application/json"
         }
         
-        # 依照您的極簡需求，強制鎖定 model 與 normal 模式
+        # 依照您的極簡需求，強制鎖定 model、normal 模式、15秒、9:16
         payload = {
             "model": "grok-imagine/image-to-video",
             "input": {
                 "image_urls": [req.image_b64], 
                 "prompt": req.prompt,
-                "mode": "normal", # 強制使用 normal 風格
-                "duration": "6",
+                "mode": "normal",
+                "duration": "15",         # 固定 15 秒
                 "resolution": "480p",
-                "aspect_ratio": "16:9"
+                "aspect_ratio": "9:16"    # 固定 9:16 直式
             }
         }
 
         response = requests.post(f"{KIE_BASE_URL}/api/v1/jobs/createTask", headers=headers, json=payload)
+        
+        # 攔截非 JSON 錯誤 (避免 Kie.ai 回傳純文字 404)
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail=f"Kie API 拒絕請求: {response.text}")
+            
         res_data = response.json()
 
-        if response.status_code == 200 and res_data.get("code") == 200:
+        if res_data.get("code") == 200:
             task_id = res_data.get("data", {}).get("taskId")
             return {"status": "processing", "task_id": task_id}
         else:
-            raise HTTPException(status_code=500, detail=f"API 建立失敗: {res_data}")
+            raise HTTPException(status_code=500, detail=f"API 任務建立失敗: {res_data}")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -72,14 +77,12 @@ async def generate_video(req: VideoGenerateRequest):
 async def check_status(task_id: str):
     try:
         headers = {"Authorization": f"Bearer {KIE_API_KEY}"}
-        # 完美避開路由陷阱，使用 Query Parameter 傳遞
         status_url = f"{KIE_BASE_URL}/api/status?task_id={task_id}" 
         
         response = requests.get(status_url, headers=headers)
         
-        # 若 Kie.ai 尚未實現標準的 status API，我們做基本容錯
         if response.status_code != 200:
-            return {"status": "processing"}
+            return {"status": "processing", "detail": f"Waiting for API... {response.status_code}"}
             
         res_data = response.json()
         
@@ -89,7 +92,6 @@ async def check_status(task_id: str):
             
             # 判斷是否完成
             if status in ["completed", "success", "done", "200"]:
-                # 暴力抓取影片網址
                 video_url = data_block.get("video_url") or data_block.get("video")
                 if not video_url and isinstance(data_block.get("result"), list) and len(data_block["result"]) > 0:
                     video_url = data_block["result"][0].get("video") or data_block["result"][0].get("image")
@@ -109,7 +111,7 @@ async def check_status(task_id: str):
         return {"status": "processing", "detail": str(e)}
 
 # ==========================================
-# 🌐 網頁與靜態檔案路由 (Render 部署必備)
+# 🌐 網頁與靜態檔案路由
 # ==========================================
 @app.get("/style.css")
 async def serve_css():
