@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 影片極速生成器</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="main-wrapper">
+        <div class="header">
+            <h1>🎬 AI 影片生成引擎</h1>
+            <p>上傳一張圖片，描述動作，剩下的交給 AI！</p>
+        </div>
+
+        <div class="panel-container">
+            <div class="panel left-panel">
+                <div class="section-title">步驟 1：上傳參考圖片 (必傳)</div>
+                <label>請提供一張清晰的圖片作為影片開頭</label>
+                <input type="file" id="imageInput" accept="image/jpeg, image/png, image/webp" onchange="previewImage()">
+                <div class="preview-container" id="imagePreview"></div>
+
+                <div class="section-title">步驟 2：輸入影片提示詞 (必填)</div>
+                <label>請描述您希望畫面如何運動（例如：鏡頭緩慢拉近，人物微笑揮手）</label>
+                <textarea id="promptInput" placeholder="請詳細描述動作、運鏡與節奏..."></textarea>
+                <p class="hint">※ 系統將自動為您採用最高標準的 Normal 畫質渲染模式</p>
+
+                <button id="generateBtn" class="btn-primary" onclick="startVideoGeneration()">🚀 立即生成影片</button>
+                <div id="statusText" class="status-text"></div>
+            </div>
+
+            <div class="panel right-panel">
+                <div class="video-container" id="videoContainer" style="display: none;">
+                    <video id="resultVideo" controls loop autoplay></video>
+                    <a id="downloadBtn" class="download-btn" href="#" target="_blank" download="AI_Video.mp4">💾 儲存影片</a>
+                </div>
+                <div id="placeholder" class="placeholder">
+                    <h2>等待生成中...</h2>
+                    <p>您的專屬影片將在此處播放</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
