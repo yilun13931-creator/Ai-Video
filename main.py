@@ -91,7 +91,7 @@ async def generate_video(
         raise HTTPException(status_code=500, detail=str(e))
 
 # ==========================================
-# 🔍 核心 API：輪詢查詢任務狀態 (徹底拔除 Defapi 邏輯)
+# 🔍 核心 API：輪詢查詢任務狀態 (精準對焦 resultUrls)
 # ==========================================
 @app.get("/api/status/{task_id}")
 async def check_status(task_id: str):
@@ -107,33 +107,38 @@ async def check_status(task_id: str):
         if res_data.get("code") in [200, 0, 1]:
             data_block = res_data.get("data", {})
             
-            # 🚨 狀態解析：同時支援 Kie.ai 的字串與數字狀態 (1=成功, 0=處理中, 2/3=失敗)
+            # 狀態解析
             raw_state = data_block.get("state", data_block.get("status", ""))
             state = str(raw_state).lower()
             
             if state in ["success", "completed", "done", "200", "1"]:
                 video_url = None
                 
-                # 🚨 終極解析器：專門對付 Kie.ai 的「字串化 JSON」 (例如 '["https://...mp4"]')
-                result_obj = data_block.get("result") or data_block.get("resultJson")
+                # 🚨 終極解析器：精準抓取您截圖中的 resultUrls 格式
+                result_obj = data_block.get("resultJson") or data_block.get("result")
                 
                 if isinstance(result_obj, str):
                     try:
-                        # 強制把字串轉換回真正的陣列
                         parsed = json.loads(result_obj)
-                        if isinstance(parsed, list) and len(parsed) > 0:
+                        if isinstance(parsed, dict):
+                            # 🎯 直接瞄準 resultUrls 這個抽屜
+                            result_urls = parsed.get("resultUrls")
+                            if isinstance(result_urls, list) and len(result_urls) > 0:
+                                video_url = result_urls[0]
+                            else:
+                                video_url = parsed.get("video") or parsed.get("url") or parsed.get("image")
+                        elif isinstance(parsed, list) and len(parsed) > 0:
                             item = parsed[0]
                             if isinstance(item, str): video_url = item
-                            elif isinstance(item, dict): video_url = item.get("video") or item.get("url") or item.get("image")
-                        elif isinstance(parsed, dict):
-                            video_url = parsed.get("video") or parsed.get("url") or parsed.get("image")
+                            elif isinstance(item, dict): video_url = item.get("video") or item.get("url")
                     except:
-                        # 萬一不是 JSON 格式，就直接當作純網址
                         video_url = result_obj
-                elif isinstance(result_obj, list) and len(result_obj) > 0:
-                    item = result_obj[0]
-                    if isinstance(item, str): video_url = item
-                    elif isinstance(item, dict): video_url = item.get("video") or item.get("url") or item.get("image")
+                elif isinstance(result_obj, dict):
+                    result_urls = result_obj.get("resultUrls")
+                    if isinstance(result_urls, list) and len(result_urls) > 0:
+                        video_url = result_urls[0]
+                    else:
+                        video_url = result_obj.get("video") or result_obj.get("url") or result_obj.get("image")
                 
                 # 防護網
                 if not video_url:
@@ -148,7 +153,7 @@ async def check_status(task_id: str):
                 fail_msg = data_block.get("failMsg", "AI 生成失敗，請確認提示詞是否違規")
                 return {"status": "failed", "detail": fail_msg}
             else:
-                # Kie.ai 的處理中狀態：waiting, queuing, generating, 0
+                # 處理中狀態
                 return {"status": "processing"}
         else:
             return {"status": "failed", "detail": f"伺服器查詢進度失敗: {res_data}"}
