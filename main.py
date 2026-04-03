@@ -43,14 +43,14 @@ async def generate_video(
     prompt: str = Form(...)
 ):
     try:
-        # 1. 儲存圖片至伺服器端 (強制純英文命名)
+        # 1. 儲存圖片至伺服器端
         unique_filename = f"img_{int(time.time())}.jpg"
         file_path = os.path.join(UPLOAD_DIR, unique_filename)
         
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(image.file, buffer)
             
-        # 2. 自動合成 Render 上的公開網址 (強制抓取 https 協議)
+        # 2. 自動合成 Render 上的公開網址
         scheme = request.headers.get("x-forwarded-proto", "https")
         host = request.url.netloc
         public_image_url = f"{scheme}://{host}/uploads/{unique_filename}"
@@ -61,13 +61,14 @@ async def generate_video(
             "Content-Type": "application/json"
         }
         
+        # 🚨 100% 吻合 Kie.ai 規範：duration 改為純數字
         payload = {
             "model": "grok-imagine/image-to-video",
             "input": {
                 "image_urls": [public_image_url], 
                 "prompt": prompt,
                 "mode": "normal",
-                "duration": "15",
+                "duration": 15,
                 "resolution": "720p"
             }
         }
@@ -79,7 +80,8 @@ async def generate_video(
             
         res_data = response.json()
 
-        if res_data.get("code") == 200:
+        # Kie.ai 成功代碼為 200 或 0 或 1
+        if res_data.get("code") in [200, 0, 1]:
             task_id = res_data.get("data", {}).get("taskId")
             return {"status": "processing", "task_id": task_id}
         else:
@@ -89,66 +91,64 @@ async def generate_video(
         raise HTTPException(status_code=500, detail=str(e))
 
 # ==========================================
-# 🔍 核心 API：輪詢查詢任務狀態 (Kie.ai 專屬修正版)
+# 🔍 核心 API：輪詢查詢任務狀態 (徹底拔除 Defapi 邏輯)
 # ==========================================
 @app.get("/api/status/{task_id}")
 async def check_status(task_id: str):
     try:
         headers = {"Authorization": f"Bearer {KIE_API_KEY}"}
         
-        # 🚨 關鍵修復：Kie.ai 官方的查詢路由是 recordInfo?taskId=
+        # 🚨 Kie.ai 專屬官方路由
         status_url = f"{KIE_BASE_URL}/api/v1/jobs/recordInfo?taskId={task_id}" 
         
         response = requests.get(status_url, headers=headers)
         res_data = response.json()
         
-        if res_data.get("code") == 200:
+        if res_data.get("code") in [200, 0, 1]:
             data_block = res_data.get("data", {})
             
-            # 🚨 關鍵修復：Kie.ai 的狀態欄位叫做 'state'
-            state = str(data_block.get("state", data_block.get("status", ""))).lower()
+            # 🚨 狀態解析：同時支援 Kie.ai 的字串與數字狀態 (1=成功, 0=處理中, 2/3=失敗)
+            raw_state = data_block.get("state", data_block.get("status", ""))
+            state = str(raw_state).lower()
             
-            if state in ["success", "completed", "done", "200"]:
+            if state in ["success", "completed", "done", "200", "1"]:
                 video_url = None
                 
-                # 🚨 關鍵修復：嘗試從 resultJson 提取真正的網址
-                result_json_str = data_block.get("resultJson")
-                if result_json_str:
-                    try:
-                        parsed_result = json.loads(result_json_str)
-                        if isinstance(parsed_result, list) and len(parsed_result) > 0:
-                            first_item = parsed_result[0]
-                            if isinstance(first_item, str):
-                                video_url = first_item  # 直接抓取 ["https://...mp4"] 格式
-                            elif isinstance(first_item, dict):
-                                video_url = first_item.get("video") or first_item.get("url")
-                    except:
-                        pass
+                # 🚨 終極解析器：專門對付 Kie.ai 的「字串化 JSON」 (例如 '["https://...mp4"]')
+                result_obj = data_block.get("result") or data_block.get("resultJson")
                 
-                # 備用抓取邏輯 (防護網)
-                if not video_url and "result" in data_block:
-                    result_data = data_block["result"]
-                    if isinstance(result_data, list) and len(result_data) > 0:
-                        first_item = result_data[0]
-                        if isinstance(first_item, str):
-                            video_url = first_item
-                        elif isinstance(first_item, dict):
-                            video_url = first_item.get("video") or first_item.get("image") or first_item.get("url")
-                            
+                if isinstance(result_obj, str):
+                    try:
+                        # 強制把字串轉換回真正的陣列
+                        parsed = json.loads(result_obj)
+                        if isinstance(parsed, list) and len(parsed) > 0:
+                            item = parsed[0]
+                            if isinstance(item, str): video_url = item
+                            elif isinstance(item, dict): video_url = item.get("video") or item.get("url") or item.get("image")
+                        elif isinstance(parsed, dict):
+                            video_url = parsed.get("video") or parsed.get("url") or parsed.get("image")
+                    except:
+                        # 萬一不是 JSON 格式，就直接當作純網址
+                        video_url = result_obj
+                elif isinstance(result_obj, list) and len(result_obj) > 0:
+                    item = result_obj[0]
+                    if isinstance(item, str): video_url = item
+                    elif isinstance(item, dict): video_url = item.get("video") or item.get("url") or item.get("image")
+                
+                # 防護網
                 if not video_url:
                     video_url = data_block.get("video_url") or data_block.get("video")
 
-                # 回傳給前端
                 if video_url:
                     return {"status": "completed", "video_url": video_url}
                 else:
-                    return {"status": "failed", "detail": f"已成功但找不到影片網址，API 回傳內容: {data_block}"}
+                    return {"status": "failed", "detail": f"影片已生成，但無法提取 Kie.ai 網址。原始回傳：{data_block}"}
                     
-            elif state in ["fail", "failed", "error"]:
-                fail_msg = data_block.get("failMsg", "AI 生成失敗，請確認圖片或提示詞是否符合規範")
+            elif state in ["fail", "failed", "error", "2", "3", "-1"]:
+                fail_msg = data_block.get("failMsg", "AI 生成失敗，請確認提示詞是否違規")
                 return {"status": "failed", "detail": fail_msg}
             else:
-                # 狀態為 waiting, queuing, generating 時，繼續讓前端轉圈圈
+                # Kie.ai 的處理中狀態：waiting, queuing, generating, 0
                 return {"status": "processing"}
         else:
             return {"status": "failed", "detail": f"伺服器查詢進度失敗: {res_data}"}
@@ -178,16 +178,13 @@ async def download_video(url: str):
 # 🌐 網頁與靜態檔案路由
 # ==========================================
 @app.get("/style.css")
-async def serve_css():
-    return FileResponse("style.css")
+async def serve_css(): return FileResponse("style.css")
 
 @app.get("/app.js")
-async def serve_js():
-    return FileResponse("app.js")
+async def serve_js(): return FileResponse("app.js")
 
 @app.get("/")
-async def serve_frontend():
-    return FileResponse("index.html")
+async def serve_frontend(): return FileResponse("index.html")
 
 if __name__ == "__main__":
     import uvicorn
