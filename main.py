@@ -1,8 +1,12 @@
-from fastapi import FastAPI, HTTPException
+import os
+import time
+import shutil
+from fastapi import FastAPI, HTTPException, Request, UploadFile, Form, File
 from pydantic import BaseModel
 import requests
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="AI 影片生成引擎")
 
@@ -23,39 +27,54 @@ KIE_API_KEY = "938b4121855a024f149ecdb79143d4ab"
 KIE_BASE_URL = "https://api.kie.ai"
 
 # ==========================================
-# 📦 資料模型
+# 📂 自動圖床設定
 # ==========================================
-class VideoGenerateRequest(BaseModel):
-    image_b64: str
-    prompt: str
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+# 將 uploads 資料夾公開，讓 Kie.ai 能讀取到圖片
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # ==========================================
 # 🚀 核心 API：提交影片生成任務
 # ==========================================
 @app.post("/api/generate_video")
-async def generate_video(req: VideoGenerateRequest):
+async def generate_video(
+    request: Request, 
+    image: UploadFile = File(...), 
+    prompt: str = Form(...)
+):
     try:
+        # 1. 儲存圖片至伺服器端
+        file_ext = image.filename.split(".")[-1] if "." in image.filename else "jpg"
+        unique_filename = f"img_{int(time.time())}.{file_ext}"
+        file_path = os.path.join(UPLOAD_DIR, unique_filename)
+        
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
+            
+        # 2. 自動合成 Render 上的公開網址 (例如 https://your-app.onrender.com/uploads/img_xxx.jpg)
+        public_image_url = f"{request.base_url}uploads/{unique_filename}"
+
+        # 3. 發送帶有真實網址的請求給 Kie.ai
         headers = {
             "Authorization": f"Bearer {KIE_API_KEY}",
             "Content-Type": "application/json"
         }
         
-        # 依照您的極簡需求，強制鎖定 model、normal 模式、15秒、9:16
         payload = {
             "model": "grok-imagine/image-to-video",
             "input": {
-                "image_urls": [req.image_b64], 
-                "prompt": req.prompt,
+                "image_urls": [public_image_url], 
+                "prompt": prompt,
                 "mode": "normal",
-                "duration": "15",         # 固定 15 秒
+                "duration": "15",
                 "resolution": "480p",
-                "aspect_ratio": "9:16"    # 固定 9:16 直式
+                "aspect_ratio": "9:16"
             }
         }
 
         response = requests.post(f"{KIE_BASE_URL}/api/v1/jobs/createTask", headers=headers, json=payload)
         
-        # 攔截非 JSON 錯誤 (避免 Kie.ai 回傳純文字 404)
         if response.status_code != 200:
             raise HTTPException(status_code=response.status_code, detail=f"Kie API 拒絕請求: {response.text}")
             
@@ -90,7 +109,6 @@ async def check_status(task_id: str):
             data_block = res_data.get("data", {})
             status = str(data_block.get("status", "")).lower()
             
-            # 判斷是否完成
             if status in ["completed", "success", "done", "200"]:
                 video_url = data_block.get("video_url") or data_block.get("video")
                 if not video_url and isinstance(data_block.get("result"), list) and len(data_block["result"]) > 0:
