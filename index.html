@@ -18,12 +18,13 @@
                 <div class="section-title">步驟 1：上傳參考圖片 (必傳)</div>
                 <label>請提供一張清晰的圖片作為影片開頭</label>
                 <input type="file" id="imageInput" accept="image/jpeg, image/png, image/webp" onchange="previewImage()">
+                <p class="hint">※ 您可隨意上傳任何比例圖片，系統將自動為您智慧置中裁切成 9:16 直式規格</p>
                 <div class="preview-container" id="imagePreview"></div>
 
                 <div class="section-title">步驟 2：輸入影片提示詞 (必填)</div>
                 <label>請描述您希望畫面如何運動（例如：鏡頭緩慢拉近，人物微笑揮手）</label>
                 <textarea id="promptInput" placeholder="請詳細描述動作、運鏡與節奏..."></textarea>
-                <p class="hint">※ 系統將自動為您採用最高標準的 Normal 畫質渲染模式</p>
+                <p class="hint">※ 系統將自動為您採用最高標準的 720p 畫質，並固定渲染 15 秒</p>
 
                 <button id="generateBtn" class="btn-primary" onclick="startVideoGeneration()">🚀 立即生成影片</button>
                 <div id="statusText" class="status-text"></div>
@@ -31,8 +32,8 @@
 
             <div class="panel right-panel">
                 <div class="video-container" id="videoContainer" style="display: none;">
-                    <video id="resultVideo" controls loop autoplay></video>
-                    <a id="downloadBtn" class="download-btn" href="#" target="_blank" download="AI_Video.mp4">💾 儲存影片</a>
+                    <video id="resultVideo" controls loop autoplay playsinline></video>
+                    <a id="downloadBtn" class="download-btn" href="#" target="_blank">💾 儲存影片</a>
                 </div>
                 <div id="placeholder" class="placeholder">
                     <h2>等待生成中...</h2>
@@ -42,6 +43,6 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=6"></script>
 </body>
 </html>

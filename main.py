@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException, Request, UploadFile, Form, File
 from pydantic import BaseModel
 import requests
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="AI 影片生成引擎")
@@ -22,7 +22,6 @@ app.add_middleware(
 # ==========================================
 # 🔑 系統核心設定區
 # ==========================================
-# 您的專屬 API Key 已自動帶入
 KIE_API_KEY = "938b4121855a024f149ecdb79143d4ab" 
 KIE_BASE_URL = "https://api.kie.ai"
 
@@ -43,14 +42,14 @@ async def generate_video(
     prompt: str = Form(...)
 ):
     try:
-        # 1. 儲存圖片至伺服器端 (強制純英文命名，避開交接文檔中的中文檔名 500 報錯地雷)
+        # 1. 儲存圖片至伺服器端 (強制純英文命名，避開中文檔名 500 報錯地雷)
         unique_filename = f"img_{int(time.time())}.jpg"
         file_path = os.path.join(UPLOAD_DIR, unique_filename)
         
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(image.file, buffer)
             
-        # 2. 自動合成 Render 上的公開網址 (強制抓取 https 協議，避免 Render 代理層生成 http 導致 API 拒絕讀取)
+        # 2. 自動合成 Render 上的公開網址 (強制抓取 https 協議)
         scheme = request.headers.get("x-forwarded-proto", "https")
         host = request.url.netloc
         public_image_url = f"{scheme}://{host}/uploads/{unique_filename}"
@@ -61,7 +60,6 @@ async def generate_video(
             "Content-Type": "application/json"
         }
         
-        # 💡 終極優化：移除 aspect_ratio (遵守官方文件單圖規則)，並將 resolution 提升至 720p！
         payload = {
             "model": "grok-imagine/image-to-video",
             "input": {
@@ -69,7 +67,7 @@ async def generate_video(
                 "prompt": prompt,
                 "mode": "normal",
                 "duration": "15",
-                "resolution": "720p"  # 升級為高畫質
+                "resolution": "720p"
             }
         }
 
@@ -110,14 +108,27 @@ async def check_status(task_id: str):
             status = str(data_block.get("status", "")).lower()
             
             if status in ["completed", "success", "done", "200"]:
+                video_url = None
+                
+                # --- 💡 萬能解析引擎 (精準捕捉 MP4 陣列) ---
                 video_url = data_block.get("video_url") or data_block.get("video")
-                if not video_url and isinstance(data_block.get("result"), list) and len(data_block["result"]) > 0:
-                    video_url = data_block["result"][0].get("video") or data_block["result"][0].get("image")
-                    
+                if not video_url and "result" in data_block:
+                    result_data = data_block["result"]
+                    if isinstance(result_data, list) and len(result_data) > 0:
+                        first_item = result_data[0]
+                        if isinstance(first_item, str):
+                            video_url = first_item
+                        elif isinstance(first_item, dict):
+                            video_url = first_item.get("video") or first_item.get("image") or first_item.get("url")
+                    elif isinstance(result_data, str):
+                        video_url = result_data
+                # ----------------------
+                
                 if video_url:
                     return {"status": "completed", "video_url": video_url}
                 else:
-                    return {"status": "failed", "detail": "已完成但找不到影片網址"}
+                    return {"status": "failed", "detail": f"已完成但解析不到網址，API 回傳內容: {data_block}"}
+                    
             elif status in ["failed", "error"]:
                 return {"status": "failed", "detail": "AI 生成失敗"}
             else:
@@ -126,7 +137,26 @@ async def check_status(task_id: str):
             return {"status": "processing"}
 
     except Exception as e:
-        return {"status": "processing", "detail": str(e)}
+        return {"status": "failed", "detail": f"伺服器解析進度時發生錯誤: {str(e)}"}
+
+# ==========================================
+# 💾 核心 API：影片跨域下載代理 (解決影片開新分頁不下載的問題)
+# ==========================================
+@app.get("/api/download_video")
+async def download_video(url: str):
+    try:
+        # 使用 stream=True 進行串流下載，保護伺服器記憶體不爆炸
+        req = requests.get(url, stream=True)
+        if req.status_code == 200:
+            return StreamingResponse(
+                req.iter_content(chunk_size=1024 * 1024), # 每次處理 1MB
+                media_type="video/mp4",
+                headers={"Content-Disposition": "attachment; filename=AI_Video_720p.mp4"}
+            )
+        else:
+            raise HTTPException(status_code=400, detail="無法取得影片檔案")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ==========================================
 # 🌐 網頁與靜態檔案路由
