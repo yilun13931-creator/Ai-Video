@@ -1,6 +1,7 @@
 import os
 import time
 import shutil
+import json
 from fastapi import FastAPI, HTTPException, Request, UploadFile, Form, File
 from pydantic import BaseModel
 import requests
@@ -42,7 +43,7 @@ async def generate_video(
     prompt: str = Form(...)
 ):
     try:
-        # 1. 儲存圖片至伺服器端 (強制純英文命名，避開中文檔名 500 報錯地雷)
+        # 1. 儲存圖片至伺服器端 (強制純英文命名)
         unique_filename = f"img_{int(time.time())}.jpg"
         file_path = os.path.join(UPLOAD_DIR, unique_filename)
         
@@ -88,30 +89,43 @@ async def generate_video(
         raise HTTPException(status_code=500, detail=str(e))
 
 # ==========================================
-# 🔍 核心 API：輪詢查詢任務狀態
+# 🔍 核心 API：輪詢查詢任務狀態 (Kie.ai 專屬修正版)
 # ==========================================
 @app.get("/api/status/{task_id}")
 async def check_status(task_id: str):
     try:
         headers = {"Authorization": f"Bearer {KIE_API_KEY}"}
-        status_url = f"{KIE_BASE_URL}/api/status?task_id={task_id}" 
+        
+        # 🚨 關鍵修復：Kie.ai 官方的查詢路由是 recordInfo?taskId=
+        status_url = f"{KIE_BASE_URL}/api/v1/jobs/recordInfo?taskId={task_id}" 
         
         response = requests.get(status_url, headers=headers)
-        
-        if response.status_code != 200:
-            return {"status": "processing", "detail": f"Waiting for API... {response.status_code}"}
-            
         res_data = response.json()
         
         if res_data.get("code") == 200:
             data_block = res_data.get("data", {})
-            status = str(data_block.get("status", "")).lower()
             
-            if status in ["completed", "success", "done", "200"]:
+            # 🚨 關鍵修復：Kie.ai 的狀態欄位叫做 'state'
+            state = str(data_block.get("state", data_block.get("status", ""))).lower()
+            
+            if state in ["success", "completed", "done", "200"]:
                 video_url = None
                 
-                # --- 💡 萬能解析引擎 (精準捕捉 MP4 陣列) ---
-                video_url = data_block.get("video_url") or data_block.get("video")
+                # 🚨 關鍵修復：嘗試從 resultJson 提取真正的網址
+                result_json_str = data_block.get("resultJson")
+                if result_json_str:
+                    try:
+                        parsed_result = json.loads(result_json_str)
+                        if isinstance(parsed_result, list) and len(parsed_result) > 0:
+                            first_item = parsed_result[0]
+                            if isinstance(first_item, str):
+                                video_url = first_item  # 直接抓取 ["https://...mp4"] 格式
+                            elif isinstance(first_item, dict):
+                                video_url = first_item.get("video") or first_item.get("url")
+                    except:
+                        pass
+                
+                # 備用抓取邏輯 (防護網)
                 if not video_url and "result" in data_block:
                     result_data = data_block["result"]
                     if isinstance(result_data, list) and len(result_data) > 0:
@@ -120,36 +134,38 @@ async def check_status(task_id: str):
                             video_url = first_item
                         elif isinstance(first_item, dict):
                             video_url = first_item.get("video") or first_item.get("image") or first_item.get("url")
-                    elif isinstance(result_data, str):
-                        video_url = result_data
-                # ----------------------
-                
+                            
+                if not video_url:
+                    video_url = data_block.get("video_url") or data_block.get("video")
+
+                # 回傳給前端
                 if video_url:
                     return {"status": "completed", "video_url": video_url}
                 else:
-                    return {"status": "failed", "detail": f"已完成但解析不到網址，API 回傳內容: {data_block}"}
+                    return {"status": "failed", "detail": f"已成功但找不到影片網址，API 回傳內容: {data_block}"}
                     
-            elif status in ["failed", "error"]:
-                return {"status": "failed", "detail": "AI 生成失敗"}
+            elif state in ["fail", "failed", "error"]:
+                fail_msg = data_block.get("failMsg", "AI 生成失敗，請確認圖片或提示詞是否符合規範")
+                return {"status": "failed", "detail": fail_msg}
             else:
+                # 狀態為 waiting, queuing, generating 時，繼續讓前端轉圈圈
                 return {"status": "processing"}
         else:
-            return {"status": "processing"}
+            return {"status": "failed", "detail": f"伺服器查詢進度失敗: {res_data}"}
 
     except Exception as e:
         return {"status": "failed", "detail": f"伺服器解析進度時發生錯誤: {str(e)}"}
 
 # ==========================================
-# 💾 核心 API：影片跨域下載代理 (解決影片開新分頁不下載的問題)
+# 💾 核心 API：影片跨域下載代理
 # ==========================================
 @app.get("/api/download_video")
 async def download_video(url: str):
     try:
-        # 使用 stream=True 進行串流下載，保護伺服器記憶體不爆炸
         req = requests.get(url, stream=True)
         if req.status_code == 200:
             return StreamingResponse(
-                req.iter_content(chunk_size=1024 * 1024), # 每次處理 1MB
+                req.iter_content(chunk_size=1024 * 1024),
                 media_type="video/mp4",
                 headers={"Content-Disposition": "attachment; filename=AI_Video_720p.mp4"}
             )
