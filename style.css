@@ -34,8 +34,26 @@ input[type="file"], input[type="password"], textarea, select { width: 100%; padd
 textarea { height: 120px; resize: vertical; }
 input[type="file"]:focus, input[type="password"]:focus, textarea:focus, select:focus { border-color: #7b61ff; outline: none; }
 
-.preview-container { margin-top: 15px; width: 100%; max-height: 200px; overflow: hidden; border-radius: 8px; display: none; }
-.preview-img { width: 100%; height: auto; object-fit: cover; }
+/* 💡 預覽區塊：完整等比例顯示，絕不裁切 */
+.preview-container { 
+    margin-top: 15px; 
+    width: 100%; 
+    border-radius: 8px; 
+    display: none; 
+    background: #f4f6f9; /* 加上淡淡的質感底色 */
+    text-align: center;  /* 讓圖片完美置中 */
+    padding: 10px;
+    box-sizing: border-box;
+}
+.preview-img { 
+    max-width: 100%; 
+    max-height: 300px;  /* 限制最高高度，避免直立長圖佔滿整個螢幕 */
+    width: auto; 
+    height: auto; 
+    object-fit: contain; /* 終極關鍵：完整等比例顯示 */
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1); /* 加一點點陰影增加立體感 */
+}
 
 .btn-primary { margin-top: 25px; width: 100%; padding: 15px; background: #7b61ff; color: white; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; font-weight: bold; transition: 0.2s; box-shadow: 0 4px 10px rgba(123, 97, 255, 0.3); }
 .btn-primary:hover { background: #6445e8; transform: translateY(-2px); }

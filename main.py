@@ -63,25 +63,21 @@ async def generate_video(
             "Accept": "application/json"
         }
         
-        # 🚨 關鍵修復：完全比照您的截圖，採用 Defapi 原生的「扁平化」參數結構
         payload = {
             "model": "grok-imagine-video",
             "prompt": prompt,
-            "image_urls": [public_image_url],  # 提供給 AI 的參考圖
-            "duration": str(duration),         # 官方文件要求字串格式
-            "aspect_ratio": "9:16"             # 指定直式比例
+            "image_urls": [public_image_url],
+            "duration": str(duration),
+            "aspect_ratio": "9:16"
         }
 
-        # 🚨 關鍵修復：採用您截圖中正確的創建任務路由
         response = requests.post(f"{DEFAPI_BASE_URL}/api/grok-imagine-video/gen", headers=headers, json=payload)
         
         if response.status_code != 200:
             raise HTTPException(status_code=response.status_code, detail=f"Defapi 拒絕請求: {response.text}")
             
         res_data = response.json()
-
-        # 精準提取 Task ID
-        task_id = res_data.get("data", {}).get("task_id") or res_data.get("task_id") or res_data.get("data", {}).get("taskId")
+        task_id = res_data.get("data", {}).get("task_id") or res_data.get("task_id")
         
         if task_id:
             return {"status": "processing", "task_id": task_id}
@@ -102,33 +98,38 @@ async def check_status(task_id: str, api_key: str):
             "Accept": "application/json"
         }
         
-        # 🚨 關鍵修復：採用您截圖中正確的查詢路由
         status_url = f"{DEFAPI_BASE_URL}/api/task/query?task_id={task_id}" 
         response = requests.get(status_url, headers=headers)
         res_data = response.json()
         
-        # 萬能解析 (相容 Defapi 各種回傳格式)
+        # 提取資料區塊
         data_block = res_data.get("data", res_data)
         raw_state = data_block.get("state", data_block.get("status", ""))
         state = str(raw_state).lower()
         
+        # 💡 關鍵修復：針對您截圖中的結構進行多層次網址提取
         if state in ["success", "completed", "done", "200", "1"]:
             video_url = None
             
-            # 嘗試多種可能藏匿網址的欄位
-            video_url = data_block.get("video_url") or data_block.get("video") or data_block.get("url")
+            # 1. 優先檢查巢狀結構 result -> video (這就是您截圖中的格式)
+            result_obj = data_block.get("result")
+            if isinstance(result_obj, dict):
+                video_url = result_obj.get("video") or result_obj.get("url")
             
-            if not video_url and "result" in data_block:
-                res_val = data_block["result"]
-                if isinstance(res_val, str): video_url = res_val
-                elif isinstance(res_val, list) and len(res_val) > 0:
-                    if isinstance(res_val[0], str): video_url = res_val[0]
-                    elif isinstance(res_val[0], dict): video_url = res_val[0].get("video") or res_val[0].get("url")
+            # 2. 備案：檢查最外層
+            if not video_url:
+                video_url = data_block.get("video_url") or data_block.get("video") or data_block.get("url")
             
+            # 3. 備案：檢查 result 是否為字串或列表
+            if not video_url and result_obj:
+                if isinstance(result_obj, str): video_url = result_obj
+                elif isinstance(result_obj, list) and len(result_obj) > 0:
+                    video_url = result_obj[0] if isinstance(result_obj[0], str) else result_obj[0].get("video")
+
             if video_url:
                 return {"status": "completed", "video_url": video_url}
             else:
-                return {"status": "failed", "detail": f"影片已生成，但無法提取網址。回傳：{data_block}"}
+                return {"status": "failed", "detail": f"影片已生成，但解析邏輯未抓到網址。內容：{data_block}"}
                 
         elif state in ["fail", "failed", "error", "2", "3", "-1"]:
             fail_msg = data_block.get("failMsg", data_block.get("error", "AI 生成失敗"))
@@ -140,7 +141,7 @@ async def check_status(task_id: str, api_key: str):
         return {"status": "failed", "detail": f"伺服器解析進度時發生錯誤: {str(e)}"}
 
 # ==========================================
-# 💾 核心 API：影片跨域下載代理
+# 💾 核心 API：影片下載與路由 (維持不變)
 # ==========================================
 @app.get("/api/download_video")
 async def download_video(url: str):
@@ -150,22 +151,17 @@ async def download_video(url: str):
             return StreamingResponse(
                 req.iter_content(chunk_size=1024 * 1024),
                 media_type="video/mp4",
-                headers={"Content-Disposition": "attachment; filename=AI_Video_720p.mp4"}
+                headers={"Content-Disposition": "attachment; filename=AI_Video.mp4"}
             )
         else:
             raise HTTPException(status_code=400, detail="無法取得影片檔案")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ==========================================
-# 🌐 網頁與靜態檔案路由
-# ==========================================
 @app.get("/style.css")
 async def serve_css(): return FileResponse("style.css")
-
 @app.get("/app.js")
 async def serve_js(): return FileResponse("app.js")
-
 @app.get("/")
 async def serve_frontend(): return FileResponse("index.html")
 

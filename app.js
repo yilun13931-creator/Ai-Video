@@ -181,7 +181,7 @@ async function startVideoGeneration() {
     const placeholder = document.getElementById('placeholder');
 
     btn.disabled = true;
-    btn.innerText = "⏳ 魔法施展中，請勿關閉網頁...";
+    btn.innerText = "⏳ 影片製作中，請勿關閉網頁...";
     statusText.innerText = "正在為您的圖片加入無損毛玻璃背景 (自動轉為 9:16)...";
     videoContainer.style.display = 'none';
     placeholder.style.display = 'block';
