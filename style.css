@@ -74,7 +74,14 @@ video { width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 .history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
 .history-card { background: #f8fafc; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.2s; }
 .history-card:hover { box-shadow: 0 8px 15px rgba(0,0,0,0.1); transform: translateY(-3px); }
-.history-video { width: 100%; height: 350px; object-fit: cover; background: #000; }
+.history-video { 
+    width: 100%; 
+    aspect-ratio: 9 / 16; /* 💡 關鍵 1：強制容器保持 9:16 的直式完美比例 */
+    height: auto; 
+    max-height: 450px;    /* 💡 關鍵 2：加上高度上限，避免在手機上佔滿整個螢幕 */
+    object-fit: contain;  /* 💡 關鍵 3：完整顯示整支影片，絕對不裁切任何邊緣 */
+    background: #000; 
+}
 .history-info { padding: 12px; flex-grow: 1; display: flex; flex-direction: column; gap: 6px; }
 .history-info strong { color: #1e293b; font-size: 0.95rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .history-info span { color: #64748b; font-size: 0.85rem; font-weight: 500; }
