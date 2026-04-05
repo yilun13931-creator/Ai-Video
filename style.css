@@ -18,7 +18,15 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 
 /* --- 佈局與面板 --- */
 .panel-container { display: flex; gap: 20px; flex-wrap: wrap; transition: opacity 0.3s; }
-.panel { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); flex: 1; min-width: 300px; }
+.panel { 
+    background: white; 
+    padding: 30px; 
+    border-radius: 12px; 
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15); 
+    flex: 1; 
+    min-width: 300px; 
+    box-sizing: border-box; /* 💡 終極對齊魔法：將內邊距強制包在寬度內 */
+}
 .right-panel { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fafafa; border: 2px dashed #ddd; min-height: 400px; }
 
 .section-title { font-weight: bold; margin: 20px 0 10px; color: #555; background: #f0edff; padding: 8px 12px; border-left: 4px solid #7b61ff; border-radius: 4px; }
