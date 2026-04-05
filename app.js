@@ -2,12 +2,12 @@
 // 💡 Firebase 核心設定 (已為您精準填入)
 // ==========================================
 const firebaseConfig = {
-    apiKey: "AIzaSyA3WvaJnuHMVtmNJJ3gB4hp49ytOPnxwog",
+    apiKey: "AIzaSyA3WVaJnuHMVtmNJJ3gB4hp49ytOPnxwog",
     authDomain: "ai-video-e6675.firebaseapp.com",
     projectId: "ai-video-e6675",
     storageBucket: "ai-video-e6675.firebasestorage.app",
     messagingSenderId: "655592187282",
-    appId: "1:655592187282:web:8967292f691717d407cd4b"
+    appId: "1:655592187282:web:8967292f691717d407cd4b",
 };
 
 // 初始化 Firebase
