@@ -1,10 +1,23 @@
-body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1e1e2f; margin: 0; padding: 20px; color: #333; display: flex; justify-content: center; min-height: 100vh; }
+/* --- 基礎樣式 --- */
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a2e; margin: 0; padding: 20px; color: #333; display: flex; justify-content: center; min-height: 100vh; }
 .main-wrapper { max-width: 1000px; width: 100%; display: flex; flex-direction: column; gap: 20px; }
 .header { text-align: center; color: white; margin-bottom: 10px; }
-.header h1 { margin: 0; font-size: 2rem; color: #fff; letter-spacing: 1px; }
+.header h1 { margin: 0; font-size: 2.2rem; color: #fff; letter-spacing: 1px; }
 .header p { color: #a0a0b5; margin-top: 5px; }
 
-.panel-container { display: flex; gap: 20px; flex-wrap: wrap; }
+/* 💡 登入區與會員狀態樣式 */
+.auth-section { margin-top: 15px; display: flex; justify-content: center; align-items: center; }
+.btn-google { background: white; color: #444; border: none; padding: 12px 25px; border-radius: 50px; font-weight: bold; font-size: 1rem; cursor: pointer; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: 0.2s; }
+.btn-google:hover { background: #f8f9fa; transform: translateY(-2px); }
+.btn-google img { width: 20px; }
+
+.user-profile { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.1); padding: 5px 15px 5px 5px; border-radius: 50px; color: #fff; font-weight: bold; }
+#userPhoto { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #7b61ff; }
+.btn-logout { background: transparent; border: 1px solid #ff4d4d; color: #ff4d4d; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: bold; transition: 0.2s; }
+.btn-logout:hover { background: #ff4d4d; color: white; }
+
+/* --- 佈局與面板 --- */
+.panel-container { display: flex; gap: 20px; flex-wrap: wrap; transition: opacity 0.3s; }
 .panel { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); flex: 1; min-width: 300px; }
 .right-panel { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fafafa; border: 2px dashed #ddd; min-height: 400px; }
 
@@ -12,7 +25,11 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 label { display: block; margin: 10px 0 5px; font-size: 0.95rem; color: #444; font-weight: 500; }
 .hint { font-size: 0.8rem; color: #ef4444; margin-top: 5px; }
 
-/* 表單元件統一樣式 (加入 select 支援) */
+/* --- 表單元件 --- */
+.input-group { display: flex; gap: 10px; }
+.btn-save { background: #7b61ff; color: white; border: none; padding: 0 20px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; white-space: nowrap; }
+.btn-save:hover { background: #6445e8; }
+
 input[type="file"], input[type="password"], textarea, select { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-family: inherit; transition: 0.2s; background: white; }
 textarea { height: 120px; resize: vertical; }
 input[type="file"]:focus, input[type="password"]:focus, textarea:focus, select:focus { border-color: #7b61ff; outline: none; }
@@ -26,6 +43,7 @@ input[type="file"]:focus, input[type="password"]:focus, textarea:focus, select:f
 
 .status-text { margin-top: 15px; text-align: center; font-weight: bold; color: #7b61ff; }
 
+/* --- 影片結果與歷史紀錄 --- */
 .video-container { width: 100%; display: flex; flex-direction: column; gap: 15px; }
 video { width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); background: #000; }
 .download-btn { display: block; text-align: center; background: #10b981; padding: 15px; color: white; text-decoration: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; transition: 0.2s; }
@@ -34,14 +52,15 @@ video { width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 .placeholder { text-align: center; color: #94a3b8; }
 .placeholder h2 { margin: 0 0 10px 0; color: #64748b; }
 
-/* 💡 新增：歷史紀錄畫廊專用樣式 */
+/* 💡 歷史紀錄畫廊專用樣式 */
 .history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
-.history-card { background: #f8fafc; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+.history-card { background: #f8fafc; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.2s; }
+.history-card:hover { box-shadow: 0 8px 15px rgba(0,0,0,0.1); transform: translateY(-3px); }
 .history-video { width: 100%; height: 350px; object-fit: cover; background: #000; }
-.history-info { padding: 12px; flex-grow: 1; display: flex; flex-direction: column; gap: 5px; }
-.history-info strong { color: #1e293b; font-size: 0.9rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.history-info span { color: #475569; font-size: 0.85rem; }
-.history-action { display: block; text-align: center; background: #64748b; color: white; padding: 10px; text-decoration: none; font-weight: bold; transition: 0.2s; font-size: 0.95rem; }
+.history-info { padding: 12px; flex-grow: 1; display: flex; flex-direction: column; gap: 6px; }
+.history-info strong { color: #1e293b; font-size: 0.95rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.history-info span { color: #64748b; font-size: 0.85rem; font-weight: 500; }
+.history-action { display: block; text-align: center; background: #64748b; color: white; padding: 12px; text-decoration: none; font-weight: bold; transition: 0.2s; font-size: 0.95rem; border-top: 1px solid #475569; }
 .history-action:hover { background: #475569; }
 
 @media (max-width: 768px) { .panel-container { flex-direction: column; } }

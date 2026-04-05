@@ -3,66 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 影片極速生成器</title>
+    <title>AI 影片極速生成器 - 會員旗艦版</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
     <div class="main-wrapper">
         <div class="header">
             <h1>🎬 AI 影片生成引擎</h1>
-            <p>輸入金鑰與圖片，剩下的交給 AI！</p>
-        </div>
-
-        <div class="panel-container">
-            <div class="panel left-panel">
-                <div class="section-title">🔑 步驟 1：輸入 API 金鑰 (必填)</div>
-                <label>請輸入您的 Defapi 金鑰</label>
-                <input type="password" id="apiKeyInput" placeholder="請填寫 sk- 開頭的金鑰..." required>
-                <p class="hint">※ 隱私保護：金鑰僅用於當次生成，伺服器絕對不會紀錄您的資料</p>
-
-                <div class="section-title">🖼️ 步驟 2：上傳參考圖片 (必傳)</div>
-                <label>請提供一張清晰的圖片作為影片開頭</label>
-                <input type="file" id="imageInput" accept="image/jpeg, image/png, image/webp" onchange="previewImage()">
-                <p class="hint">※ 您可隨意上傳任何比例圖片，系統將自動為您智慧置中裁切成 9:16 直式規格</p>
-                <div class="preview-container" id="imagePreview"></div>
-
-                <div class="section-title">✍️ 步驟 3：輸入影片提示詞 (必填)</div>
-                <label>請描述您希望畫面如何運動（例如：鏡頭緩慢拉近，人物微笑揮手）</label>
-                <textarea id="promptInput" placeholder="請詳細描述動作、運鏡與節奏..."></textarea>
-
-                <div class="section-title">⏱️ 步驟 4：選擇影片長度</div>
-                <select id="durationInput">
-                    <option value="10" selected>10 秒 (預設，適合社群短影音)</option>
-                    <option value="15">15 秒 (適合產品細節展示)</option>
-                </select>
-                <p class="hint">※ 系統將自動為您採用最高標準的 720p 高畫質渲染</p>
-
-                <button id="generateBtn" class="btn-primary" onclick="startVideoGeneration()">🚀 立即生成影片</button>
-                <div id="statusText" class="status-text"></div>
-            </div>
-
-            <div class="panel right-panel">
-                <div class="video-container" id="videoContainer" style="display: none;">
-                    <video id="resultVideo" controls loop autoplay playsinline></video>
-                    <a id="downloadBtn" class="download-btn" href="#" target="_blank">💾 儲存影片</a>
-                </div>
-                <div id="placeholder" class="placeholder">
-                    <h2>等待生成中...</h2>
-                    <p>您的專屬影片將在此處播放</p>
+            <p>專業會員專屬平台</p>
+            
+            <div id="authSection" class="auth-section">
+                <button id="loginBtn" class="btn-google" onclick="handleGoogleLogin()">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
+                    使用 Google 帳號登入
+                </button>
+                <div id="userProfile" class="user-profile" style="display: none;">
+                    <img id="userPhoto" src="" alt="avatar">
+                    <span id="userName">載入中...</span>
+                    <button class="btn-logout" onclick="handleLogout()">登出</button>
                 </div>
             </div>
         </div>
 
-        <div class="panel-container" style="margin-top: 10px;">
-            <div class="panel" style="width: 100%;">
-                <div class="section-title">🕒 本機歷史生成紀錄</div>
-                <p style="font-size: 0.85rem; color: #64748b; margin-top: -5px; margin-bottom: 15px;">※ 紀錄自動保存在您的瀏覽器中，最高保留 20 筆。</p>
-                <div id="historyGrid" class="history-grid">
+        <div id="mainApp" style="display: none; opacity: 0.5; pointer-events: none;">
+            <div class="panel-container">
+                <div class="panel left-panel">
+                    <div class="section-title">🔑 步驟 1：您的 API 金鑰 (自動保存)</div>
+                    <label>Defapi 金鑰</label>
+                    <div class="input-group">
+                        <input type="password" id="apiKeyInput" placeholder="儲存後下次將自動填寫...">
+                        <button class="btn-save" onclick="saveUserApiKey()">儲存設定</button>
                     </div>
+                    <p class="hint">※ 儲存後，金鑰將永久加密保存在您的雲端帳號中</p>
+
+                    <div class="section-title">🖼️ 步驟 2：上傳參考圖片</div>
+                    <label>請提供一張清晰的圖片作為影片開頭</label>
+                    <input type="file" id="imageInput" accept="image/jpeg, image/png, image/webp" onchange="previewImage()">
+                    <p class="hint">※ 您可隨意上傳任何比例圖片，系統將自動為您智慧置中裁切成 9:16 直式規格</p>
+                    <div class="preview-container" id="imagePreview"></div>
+
+                    <div class="section-title">✍️ 步驟 3：輸入影片提示詞</div>
+                    <label>請描述您希望畫面如何運動（例如：鏡頭緩慢拉近，人物微笑揮手）</label>
+                    <textarea id="promptInput" placeholder="請詳細描述動作、運鏡與節奏..."></textarea>
+
+                    <div class="section-title">⏱️ 步驟 4：選擇影片長度</div>
+                    <select id="durationInput">
+                        <option value="10" selected>10 秒 (預設，適合社群短影音)</option>
+                        <option value="15">15 秒 (適合產品細節展示)</option>
+                    </select>
+                    <p class="hint">※ 系統將自動為您採用最高標準的 720p 畫質渲染</p>
+
+                    <button id="generateBtn" class="btn-primary" onclick="startVideoGeneration()">🚀 立即生成影片</button>
+                    <div id="statusText" class="status-text"></div>
+                </div>
+
+                <div class="panel right-panel">
+                    <div class="video-container" id="videoContainer" style="display: none;">
+                        <video id="resultVideo" controls loop autoplay playsinline></video>
+                        <a id="downloadBtn" class="download-btn" href="#" target="_blank">💾 儲存影片</a>
+                    </div>
+                    <div id="placeholder" class="placeholder">
+                        <h2 id="placeholderText">登入後即可開始製作影片</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-container" style="margin-top: 10px;">
+                <div class="panel" style="width: 100%;">
+                    <div class="section-title">🕒 雲端生成紀錄 (所有裝置同步)</div>
+                    <p style="font-size: 0.85rem; color: #64748b; margin-top: -5px; margin-bottom: 15px;">※ 紀錄永久安全保存在您的雲端帳號中，最高顯示最新 20 筆。</p>
+                    <div id="historyGrid" class="history-grid">
+                        </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <script src="app.js?v=8"></script>
+    <script src="app.js?v=10"></script>
 </body>
 </html>

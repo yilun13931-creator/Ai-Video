@@ -41,7 +41,7 @@ async def generate_video(
     image: UploadFile = File(...), 
     prompt: str = Form(...),
     api_key: str = Form(...),
-    duration: int = Form(10)  # 💡 新增長度參數，預設為 10 秒
+    duration: int = Form(10)
 ):
     try:
         # 1. 儲存圖片至伺服器端
@@ -68,7 +68,7 @@ async def generate_video(
                 "image_urls": [public_image_url], 
                 "prompt": prompt,
                 "mode": "normal",
-                "duration": duration, # 💡 將用戶選擇的長度動態傳入
+                "duration": duration,
                 "resolution": "720p"
             }
         }
