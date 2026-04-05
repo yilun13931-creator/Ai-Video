@@ -23,8 +23,7 @@ app.add_middleware(
 # ==========================================
 # 🔑 系統核心設定區
 # ==========================================
-KIE_API_KEY = "938b4121855a024f149ecdb79143d4ab" 
-KIE_BASE_URL = "https://api.kie.ai"
+DEFAPI_BASE_URL = "https://api.defapi.org"
 
 # ==========================================
 # 📂 自動圖床設定
@@ -40,7 +39,9 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 async def generate_video(
     request: Request, 
     image: UploadFile = File(...), 
-    prompt: str = Form(...)
+    prompt: str = Form(...),
+    api_key: str = Form(...),
+    duration: int = Form(10)  # 💡 新增長度參數，預設為 10 秒
 ):
     try:
         # 1. 儲存圖片至伺服器端
@@ -55,34 +56,34 @@ async def generate_video(
         host = request.url.netloc
         public_image_url = f"{scheme}://{host}/uploads/{unique_filename}"
 
-        # 3. 發送請求給 Kie.ai
+        # 3. 發送請求給 Defapi
         headers = {
-            "Authorization": f"Bearer {KIE_API_KEY}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
         
-        # 🚨 100% 吻合 Kie.ai 規範：duration 改為純數字
         payload = {
             "model": "grok-imagine/image-to-video",
             "input": {
                 "image_urls": [public_image_url], 
                 "prompt": prompt,
                 "mode": "normal",
-                "duration": 15,
+                "duration": duration, # 💡 將用戶選擇的長度動態傳入
                 "resolution": "720p"
             }
         }
 
-        response = requests.post(f"{KIE_BASE_URL}/api/v1/jobs/createTask", headers=headers, json=payload)
+        response = requests.post(f"{DEFAPI_BASE_URL}/api/v1/jobs/createTask", headers=headers, json=payload)
         
         if response.status_code != 200:
-            raise HTTPException(status_code=response.status_code, detail=f"Kie API 拒絕請求: {response.text}")
+            raise HTTPException(status_code=response.status_code, detail=f"Defapi 拒絕請求: {response.text}")
             
         res_data = response.json()
 
-        # Kie.ai 成功代碼為 200 或 0 或 1
-        if res_data.get("code") in [200, 0, 1]:
-            task_id = res_data.get("data", {}).get("taskId")
+        if res_data.get("code") in [200, 0, 1] or res_data.get("status") == "success":
+            task_id = res_data.get("data", {}).get("taskId") or res_data.get("task_id")
+            if not task_id:
+                raise HTTPException(status_code=500, detail=f"Defapi 未回傳 Task ID: {res_data}")
             return {"status": "processing", "task_id": task_id}
         else:
             raise HTTPException(status_code=500, detail=f"API 任務建立失敗: {res_data}")
@@ -91,37 +92,37 @@ async def generate_video(
         raise HTTPException(status_code=500, detail=str(e))
 
 # ==========================================
-# 🔍 核心 API：輪詢查詢任務狀態 (精準對焦 resultUrls)
+# 🔍 核心 API：輪詢查詢任務狀態
 # ==========================================
 @app.get("/api/status/{task_id}")
-async def check_status(task_id: str):
+async def check_status(task_id: str, api_key: str):
     try:
-        headers = {"Authorization": f"Bearer {KIE_API_KEY}"}
+        headers = {"Authorization": f"Bearer {api_key}"}
         
-        # 🚨 Kie.ai 專屬官方路由
-        status_url = f"{KIE_BASE_URL}/api/v1/jobs/recordInfo?taskId={task_id}" 
-        
+        status_url = f"{DEFAPI_BASE_URL}/api/v1/jobs/recordInfo?taskId={task_id}" 
         response = requests.get(status_url, headers=headers)
+        
+        if response.status_code == 404:
+            status_url = f"{DEFAPI_BASE_URL}/api/status?task_id={task_id}"
+            response = requests.get(status_url, headers=headers)
+            
         res_data = response.json()
         
-        if res_data.get("code") in [200, 0, 1]:
-            data_block = res_data.get("data", {})
+        if res_data.get("code") in [200, 0, 1] or "status" in res_data:
+            data_block = res_data.get("data", res_data)
             
-            # 狀態解析
             raw_state = data_block.get("state", data_block.get("status", ""))
             state = str(raw_state).lower()
             
             if state in ["success", "completed", "done", "200", "1"]:
                 video_url = None
                 
-                # 🚨 終極解析器：精準抓取您截圖中的 resultUrls 格式
                 result_obj = data_block.get("resultJson") or data_block.get("result")
                 
                 if isinstance(result_obj, str):
                     try:
                         parsed = json.loads(result_obj)
                         if isinstance(parsed, dict):
-                            # 🎯 直接瞄準 resultUrls 這個抽屜
                             result_urls = parsed.get("resultUrls")
                             if isinstance(result_urls, list) and len(result_urls) > 0:
                                 video_url = result_urls[0]
@@ -139,21 +140,23 @@ async def check_status(task_id: str):
                         video_url = result_urls[0]
                     else:
                         video_url = result_obj.get("video") or result_obj.get("url") or result_obj.get("image")
+                elif isinstance(result_obj, list) and len(result_obj) > 0:
+                    item = result_obj[0]
+                    if isinstance(item, str): video_url = item
+                    elif isinstance(item, dict): video_url = item.get("video") or item.get("url") or item.get("image")
                 
-                # 防護網
                 if not video_url:
                     video_url = data_block.get("video_url") or data_block.get("video")
 
                 if video_url:
                     return {"status": "completed", "video_url": video_url}
                 else:
-                    return {"status": "failed", "detail": f"影片已生成，但無法提取 Kie.ai 網址。原始回傳：{data_block}"}
+                    return {"status": "failed", "detail": f"影片已生成，但無法提取網址。回傳：{data_block}"}
                     
             elif state in ["fail", "failed", "error", "2", "3", "-1"]:
-                fail_msg = data_block.get("failMsg", "AI 生成失敗，請確認提示詞是否違規")
+                fail_msg = data_block.get("failMsg", data_block.get("error", "AI 生成失敗"))
                 return {"status": "failed", "detail": fail_msg}
             else:
-                # 處理中狀態
                 return {"status": "processing"}
         else:
             return {"status": "failed", "detail": f"伺服器查詢進度失敗: {res_data}"}

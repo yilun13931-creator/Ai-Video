@@ -10,21 +10,32 @@
     <div class="main-wrapper">
         <div class="header">
             <h1>🎬 AI 影片生成引擎</h1>
-            <p>上傳一張圖片，描述動作，剩下的交給 AI！</p>
+            <p>輸入金鑰與圖片，剩下的交給 AI！</p>
         </div>
 
         <div class="panel-container">
             <div class="panel left-panel">
-                <div class="section-title">步驟 1：上傳參考圖片 (必傳)</div>
+                <div class="section-title">🔑 步驟 1：輸入 API 金鑰 (必填)</div>
+                <label>請輸入您的 Defapi 金鑰</label>
+                <input type="password" id="apiKeyInput" placeholder="請填寫 sk- 開頭的金鑰..." required>
+                <p class="hint">※ 隱私保護：金鑰僅用於當次生成，伺服器絕對不會紀錄您的資料</p>
+
+                <div class="section-title">🖼️ 步驟 2：上傳參考圖片 (必傳)</div>
                 <label>請提供一張清晰的圖片作為影片開頭</label>
                 <input type="file" id="imageInput" accept="image/jpeg, image/png, image/webp" onchange="previewImage()">
                 <p class="hint">※ 您可隨意上傳任何比例圖片，系統將自動為您智慧置中裁切成 9:16 直式規格</p>
                 <div class="preview-container" id="imagePreview"></div>
 
-                <div class="section-title">步驟 2：輸入影片提示詞 (必填)</div>
+                <div class="section-title">✍️ 步驟 3：輸入影片提示詞 (必填)</div>
                 <label>請描述您希望畫面如何運動（例如：鏡頭緩慢拉近，人物微笑揮手）</label>
                 <textarea id="promptInput" placeholder="請詳細描述動作、運鏡與節奏..."></textarea>
-                <p class="hint">※ 系統將自動為您採用最高標準的 720p 畫質，並固定渲染 15 秒</p>
+
+                <div class="section-title">⏱️ 步驟 4：選擇影片長度</div>
+                <select id="durationInput">
+                    <option value="10" selected>10 秒 (預設，適合社群短影音)</option>
+                    <option value="15">15 秒 (適合產品細節展示)</option>
+                </select>
+                <p class="hint">※ 系統將自動為您採用最高標準的 720p 高畫質渲染</p>
 
                 <button id="generateBtn" class="btn-primary" onclick="startVideoGeneration()">🚀 立即生成影片</button>
                 <div id="statusText" class="status-text"></div>
@@ -41,8 +52,17 @@
                 </div>
             </div>
         </div>
+
+        <div class="panel-container" style="margin-top: 10px;">
+            <div class="panel" style="width: 100%;">
+                <div class="section-title">🕒 本機歷史生成紀錄</div>
+                <p style="font-size: 0.85rem; color: #64748b; margin-top: -5px; margin-bottom: 15px;">※ 紀錄自動保存在您的瀏覽器中，最高保留 20 筆。</p>
+                <div id="historyGrid" class="history-grid">
+                    </div>
+            </div>
+        </div>
     </div>
 
-    <script src="app.js?v=6"></script>
+    <script src="app.js?v=8"></script>
 </body>
 </html>

@@ -12,9 +12,10 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 label { display: block; margin: 10px 0 5px; font-size: 0.95rem; color: #444; font-weight: 500; }
 .hint { font-size: 0.8rem; color: #ef4444; margin-top: 5px; }
 
-input[type="file"], textarea { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-family: inherit; transition: 0.2s; }
+/* 表單元件統一樣式 (加入 select 支援) */
+input[type="file"], input[type="password"], textarea, select { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-family: inherit; transition: 0.2s; background: white; }
 textarea { height: 120px; resize: vertical; }
-input[type="file"]:focus, textarea:focus { border-color: #7b61ff; outline: none; }
+input[type="file"]:focus, input[type="password"]:focus, textarea:focus, select:focus { border-color: #7b61ff; outline: none; }
 
 .preview-container { margin-top: 15px; width: 100%; max-height: 200px; overflow: hidden; border-radius: 8px; display: none; }
 .preview-img { width: 100%; height: auto; object-fit: cover; }
@@ -32,5 +33,15 @@ video { width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 
 .placeholder { text-align: center; color: #94a3b8; }
 .placeholder h2 { margin: 0 0 10px 0; color: #64748b; }
+
+/* 💡 新增：歷史紀錄畫廊專用樣式 */
+.history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+.history-card { background: #f8fafc; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+.history-video { width: 100%; height: 350px; object-fit: cover; background: #000; }
+.history-info { padding: 12px; flex-grow: 1; display: flex; flex-direction: column; gap: 5px; }
+.history-info strong { color: #1e293b; font-size: 0.9rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.history-info span { color: #475569; font-size: 0.85rem; }
+.history-action { display: block; text-align: center; background: #64748b; color: white; padding: 10px; text-decoration: none; font-weight: bold; transition: 0.2s; font-size: 0.95rem; }
+.history-action:hover { background: #475569; }
 
 @media (max-width: 768px) { .panel-container { flex-direction: column; } }
