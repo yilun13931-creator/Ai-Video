@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 影片極速生成器 - 會員旗艦版</title>
+    <title>AI 影片生成器</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -37,7 +37,7 @@
                         <input type="password" id="apiKeyInput" placeholder="儲存後下次將自動填寫...">
                         <button class="btn-save" onclick="saveUserApiKey()">儲存設定</button>
                     </div>
-                    <p class="hint">※ 儲存後，金鑰將永久加密保存在您的雲端帳號中</p>
+                    <p class="hint">※ 儲存後，金鑰將永久加密保存在您的雲端帳號中(只有你自己看得到)</p>
 
                     <div class="section-title">🖼️ 步驟 2：上傳參考圖片</div>
                     <label>請提供一張清晰的圖片作為影片開頭</label>
@@ -54,7 +54,7 @@
                         <option value="10" selected>10 秒 (預設，適合社群短影音)</option>
                         <option value="15">15 秒 (適合產品細節展示)</option>
                     </select>
-                    <p class="hint">※ 系統將自動為您採用最高標準的 720p 畫質渲染</p>
+                    <p class="hint">※ 系統將自動為您採用 720p 畫質渲染</p>
 
                     <button id="generateBtn" class="btn-primary" onclick="startVideoGeneration()">🚀 立即生成影片</button>
                     <div id="statusText" class="status-text"></div>
