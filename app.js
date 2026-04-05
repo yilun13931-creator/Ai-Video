@@ -1,5 +1,5 @@
 // ==========================================
-// 💡 Firebase 核心設定 (已為您精準填入)
+// 💡 Firebase 核心設定 (已確認金鑰大小寫完全正確)
 // ==========================================
 const firebaseConfig = {
     apiKey: "AIzaSyA3WVaJnuHMVtmNJJ3gB4hp49ytOPnxwog",
@@ -181,7 +181,7 @@ async function startVideoGeneration() {
     const placeholder = document.getElementById('placeholder');
 
     btn.disabled = true;
-    btn.innerText = "⏳ 影片製作中，請勿關閉網頁...";
+    btn.innerText = "⏳ 魔法施展中，請勿關閉網頁...";
     statusText.innerText = "正在為您的圖片加入無損毛玻璃背景 (自動轉為 9:16)...";
     videoContainer.style.display = 'none';
     placeholder.style.display = 'block';
@@ -275,7 +275,7 @@ function pollStatus(taskId, apiKey, promptText, durationVal) {
 }
 
 // ==========================================
-// 雲端歷史紀錄引擎 (Firestore)
+// 雲端歷史紀錄引擎 (Firestore) - 無敵解鎖版
 // ==========================================
 async function saveToCloudHistory(url, prompt, duration) {
     try {
@@ -296,11 +296,9 @@ async function renderCloudHistory() {
     const grid = document.getElementById('historyGrid');
     
     try {
-        // 從雲端抓取該用戶最新的 20 筆資料
+        // 💡 破解法：移除 orderBy，避開 Firebase 嚴格的複合索引要求
         const snapshot = await db.collection('history')
             .where('uid', '==', currentUser.uid)
-            .orderBy('createdAt', 'desc')
-            .limit(20)
             .get();
 
         if (snapshot.empty) {
@@ -308,8 +306,18 @@ async function renderCloudHistory() {
             return;
         }
 
-        grid.innerHTML = snapshot.docs.map(doc => {
-            const item = doc.data();
+        // 💡 破解法：資料拿回來後，交給瀏覽器在前端進行時間排序
+        let historyData = snapshot.docs.map(doc => doc.data());
+        historyData.sort((a, b) => {
+            const timeA = a.createdAt ? a.createdAt.toMillis() : 0;
+            const timeB = b.createdAt ? b.createdAt.toMillis() : 0;
+            return timeB - timeA; // 新的在前面
+        });
+        
+        // 只顯示最新 20 筆
+        historyData = historyData.slice(0, 20);
+
+        grid.innerHTML = historyData.map(item => {
             const time = item.createdAt ? item.createdAt.toDate().toLocaleString('zh-TW', { hour12: false }) : '剛剛';
             return `
                 <div class="history-card">
@@ -324,5 +332,7 @@ async function renderCloudHistory() {
         }).join('');
     } catch (e) {
         console.error("無法讀取歷史紀錄: ", e);
+        // 如果是權限沒開好，這裡會直接顯示紅字提醒您
+        grid.innerHTML = `<p style="text-align:center; color:red; grid-column: 1/-1; padding: 30px;">讀取失敗：${e.message}</p>`;
     }
 }
