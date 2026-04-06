@@ -3,7 +3,6 @@ import time
 import shutil
 import glob
 import json
-from typing import Optional
 from fastapi import FastAPI, HTTPException, Request, UploadFile, Form, File, BackgroundTasks
 from pydantic import BaseModel
 import requests
@@ -36,7 +35,7 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-# 💡 優化：自動垃圾車功能，刪除超過 1 小時的舊圖片，防止伺服器硬碟塞爆
+# 💡 自動垃圾車：清理過期圖片，確保伺服器硬碟不會爆滿
 def cleanup_old_files():
     try:
         now = time.time()
@@ -54,14 +53,15 @@ def cleanup_old_files():
 @app.post("/api/generate_video")
 def generate_video(
     request: Request, 
-    background_tasks: BackgroundTasks, # 💡 優化：啟用背景任務處理器
+    background_tasks: BackgroundTasks,
+    # 💡 鐵血防呆：這裡不再使用 Optional！後端也強制要求必須帶有圖片檔案
+    image: UploadFile = File(...), 
     prompt: str = Form(...),
     api_key: str = Form(...),
     duration: int = Form(10),
-    model_type: str = Form("grok"),
-    image: Optional[UploadFile] = File(None)
+    model_type: str = Form("grok")
 ):
-    # 💡 優化：在每次有人生成影片時，於背景偷偷執行硬碟清理，不影響回傳速度
+    # 背景執行垃圾清理，不影響回傳速度
     background_tasks.add_task(cleanup_old_files)
 
     try:
@@ -72,44 +72,39 @@ def generate_video(
             "Accept": "application/json"
         }
         
-        # --- 步驟 1：處理圖片 (如果有上傳的話) ---
-        public_image_url = ""
-        if image and image.filename:
-            unique_filename = f"img_{int(time.time())}.jpg"
-            file_path = os.path.join(UPLOAD_DIR, unique_filename)
-            
-            # 將圖片實體儲存到伺服器
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(image.file, buffer)
-            
-            # 自動合成 Render 上的公開網址
-            scheme = request.headers.get("x-forwarded-proto", "https")
-            host = request.url.netloc
-            public_image_url = f"{scheme}://{host}/uploads/{unique_filename}"
+        # --- 步驟 1：強制處理與儲存圖片 ---
+        # 因為前面已經規定必填，所以這裡絕對拿得到圖片，邏輯變得非常乾淨！
+        unique_filename = f"img_{int(time.time())}.jpg"
+        file_path = os.path.join(UPLOAD_DIR, unique_filename)
+        
+        # 將圖片實體儲存到伺服器
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
+        
+        # 自動合成 Render 上的公開網址
+        scheme = request.headers.get("x-forwarded-proto", "https")
+        host = request.url.netloc
+        public_image_url = f"{scheme}://{host}/uploads/{unique_filename}"
 
-        # --- 步驟 2：根據選擇的模型，動態切換路由與包裹 ---
+        # --- 步驟 2：動態切換路由，並強制附帶商品圖網址 ---
         if model_type == "sora2":
             url = f"{DEFAPI_BASE_URL}/api/sora2/gen"
             payload = {
                 "prompt": prompt,
-                "duration": str(duration)
+                "duration": str(duration),
+                "image_urls": [public_image_url] # 💡 讓 Sora2 強制看商品圖
             }
         else:
-            # 預設為 Grok Imagine 格式
             url = f"{DEFAPI_BASE_URL}/api/grok-imagine-video/gen"
             payload = {
                 "model": "grok-imagine-video",
                 "prompt": prompt,
                 "duration": str(duration),
-                "aspect_ratio": "9:16"
+                "aspect_ratio": "9:16",
+                "image_urls": [public_image_url] # 💡 讓 Grok 強制看商品圖
             }
-            
-        # --- 步驟 3：如果前面有成功取得圖片網址，統一塞入 image_urls 讓 AI 讀取 ---
-        if public_image_url:
-            payload["image_urls"] = [public_image_url]
 
-        # --- 步驟 4：正式發送請求至 AI 伺服器 ---
-        # 💡 優化：加入 timeout=60，防範 Defapi 當機導致您的網站卡死！
+        # --- 步驟 3：正式發送請求至 AI 伺服器 (附帶防卡死超時設定) ---
         response = requests.post(url, headers=headers, json=payload, timeout=60)
         
         if response.status_code != 200:
@@ -144,7 +139,7 @@ def check_status(task_id: str, api_key: str):
         # 不管是哪個模型，查詢進度的路由皆一致
         status_url = f"{DEFAPI_BASE_URL}/api/task/query?task_id={task_id}" 
         
-        # 💡 優化：加入 timeout=30，防止查詢動作卡死
+        # 附帶超時設定
         response = requests.get(status_url, headers=headers, timeout=30)
         res_data = response.json()
         
@@ -196,7 +191,7 @@ def check_status(task_id: str, api_key: str):
 @app.get("/api/download_video")
 def download_video(url: str):
     try:
-        # 💡 優化：加入 timeout 防止惡意網址卡死伺服器
+        # 加入 timeout 防止惡意網址卡死伺服器
         req = requests.get(url, stream=True, timeout=30)
         if req.status_code == 200:
             return StreamingResponse(

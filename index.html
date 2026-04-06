@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 影片生成器</title>
+    <title>AI 影片生成引擎</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -39,24 +39,32 @@
                     </div>
                     <p class="hint">※ 儲存後，金鑰將永久加密保存在您的雲端帳號中(只有你自己看得到)</p>
 
-                    <div class="section-title">🖼️ 步驟 2：上傳參考圖片</div>
-                    <label>請提供一張清晰的圖片作為影片開頭</label>
-                    <input type="file" id="imageInput" accept="image/jpeg, image/png, image/webp" onchange="previewImage()">
-                    <p class="hint">※ 您可隨意上傳任何比例圖片，系統將自動為您智慧置中裁切成 9:16 直式規格</p>
-                    <div class="preview-container" id="imagePreview"></div>
+                    <div class="section-title">🤖 步驟 2：選擇生成模型</div>
+                    <select id="modelSelect" onchange="handleModelChange()">
+                        <option value="grok" selected>Grok Imagine (速度快 / 適合動態展示)</option>
+                        <option value="sora2">Sora 2 Stable (高階運算 / 適合精緻廣告)</option>
+                    </select>
 
-                    <div class="section-title">✍️ 步驟 3：輸入影片提示詞</div>
+                    <div id="imageUploadSection">
+                        <div class="section-title">🖼️ 步驟 3：上傳商品參考圖 <span style="color:red;">(商業廣告必填)</span></div>
+                        <label>請提供一張清晰的商品圖片作為影片開頭</label>
+                        <input type="file" id="imageInput" accept="image/jpeg, image/png, image/webp" onchange="previewImage()">
+                        <p class="hint">※ 系統將強制作為影片首幀，確保商品一致性。支援自動 9:16 無損填滿。</p>
+                        <div class="preview-container" id="imagePreview"></div>
+                    </div>
+
+                    <div class="section-title">✍️ 步驟 4：輸入影片提示詞</div>
                     <label>請描述您希望畫面如何運動（例如：鏡頭緩慢拉近，人物微笑揮手）</label>
                     <textarea id="promptInput" placeholder="請詳細描述動作、運鏡與節奏..."></textarea>
 
-                    <div class="section-title">⏱️ 步驟 4：選擇影片長度</div>
+                    <div class="section-title">⏱️ 步驟 5：選擇影片長度</div>
                     <select id="durationInput">
                         <option value="10" selected>10 秒 (預設，適合社群短影音)</option>
                         <option value="15">15 秒 (適合產品細節展示)</option>
                     </select>
                     <p class="hint">※ 系統將自動為您採用 720p 畫質渲染</p>
 
-                    <button id="generateBtn" class="btn-primary" onclick="startVideoGeneration()">🚀 立即生成影片</button>
+                    <button id="generateBtn" class="btn-primary" onclick="startVideoGeneration()">🚀 立即以 Grok 生成影片</button>
                     <div id="statusText" class="status-text"></div>
                 </div>
 
@@ -75,13 +83,12 @@
                 <div class="panel" style="width: 100%;">
                     <div class="section-title">🕒 雲端生成紀錄 (所有裝置同步)</div>
                     <p style="font-size: 0.85rem; color: #64748b; margin-top: -5px; margin-bottom: 15px;">※ 紀錄永久安全保存在您的雲端帳號中，最高顯示最新 20 筆。</p>
-                    <div id="historyGrid" class="history-grid">
-                        </div>
+                    <div id="historyGrid" class="history-grid"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="app.js?v=10"></script>
+    <script src="app.js?v=2026_Final"></script>
 </body>
 </html>

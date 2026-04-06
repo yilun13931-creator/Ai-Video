@@ -193,6 +193,9 @@ async function startVideoGeneration() {
 
     // 基本防呆檢查
     if (!apiKey) return alert("請先填寫 API 金鑰！");
+    
+    // 💡 鐵血防呆：商業規定，沒有商品原圖絕對不准送出 API，節省成本！
+    if (fileInput.files.length === 0) return alert("【商業規定】請務必上傳商品圖片，以確保廣告主角的一致性！");
     if (!promptInput) return alert("請輸入提示詞！");
 
     const btn = document.getElementById('generateBtn');
@@ -203,7 +206,7 @@ async function startVideoGeneration() {
     // 鎖定按鈕，顯示載入狀態
     btn.disabled = true;
     btn.innerText = "⏳ 魔法施展中...";
-    statusText.innerText = `正在為 ${modelSelect.toUpperCase()} 準備包裹資料...`;
+    statusText.innerText = "正在為您的商品圖進行 9:16 無損處理...";
     videoContainer.style.display = 'none';
     placeholder.style.display = 'block';
 
@@ -214,12 +217,9 @@ async function startVideoGeneration() {
         formData.append("duration", durationInput);
         formData.append("model_type", modelSelect);
 
-        // 如果用戶有上傳圖片，則進行毛玻璃運算並加入表單
-        if (fileInput.files.length > 0) {
-            statusText.innerText = "正在處理圖片並上傳至伺服器...";
-            const processedFile = await processImageTo916(fileInput.files[0]);
-            formData.append("image", processedFile);
-        }
+        // 前面已經攔截了必填，所以這裡一定有圖片，直接送入處理
+        const processedFile = await processImageTo916(fileInput.files[0]);
+        formData.append("image", processedFile);
 
         // 發送請求至我們自己的後端 (main.py)
         const res = await fetch("/api/generate_video", { 
@@ -236,7 +236,7 @@ async function startVideoGeneration() {
 
         // 如果成功取得任務 ID，開始輪詢進度
         if (data.task_id) {
-            statusText.innerText = "✅ 任務已啟動！AI 正在進行算圖...";
+            statusText.innerText = `✅ 商品已就緒！${modelSelect.toUpperCase()} 正在算圖...`;
             pollStatus(data.task_id, apiKey, promptInput, durationInput, modelSelect);
         } else { 
             throw new Error("任務建立失敗"); 
@@ -261,14 +261,14 @@ function pollStatus(taskId, apiKey, promptText, durationVal, modelName) {
     const downloadBtn = document.getElementById('downloadBtn');
     
     let dotCount = 0;
-    let pollCount = 0; // 💡 優化：紀錄查詢次數
-    const MAX_POLLS = 75; // 💡 優化：最多查詢 75 次 (約 10 分鐘)，超時自動放棄
+    let pollCount = 0; 
+    const MAX_POLLS = 75; // 最多查詢 75 次 (約 10 分鐘)，超時自動放棄
     
     const interval = setInterval(async () => {
         try {
             pollCount++;
             
-            // 💡 優化：超時防爆保護
+            // 超時防爆保護
             if (pollCount > MAX_POLLS) {
                 clearInterval(interval);
                 statusText.innerText = "❌ 處理超時：AI 伺服器遲遲未回應，請稍後再試。";
@@ -288,7 +288,7 @@ function pollStatus(taskId, apiKey, promptText, durationVal, modelName) {
             // 如果成功完成
             if (data.status === "completed") {
                 clearInterval(interval);
-                statusText.innerText = "🎉 生成完成！";
+                statusText.innerText = "🎉 廣告生成完成！";
                 
                 // 顯示影片與下載按鈕
                 resultVideo.src = data.video_url;
@@ -346,7 +346,7 @@ async function renderCloudHistory() {
             .get();
             
         if (snapshot.empty) { 
-            grid.innerHTML = '<p style="text-align:center; color:#999; grid-column:1/-1; padding:30px;">尚無紀錄！趕緊生成您的第一部雲端影片吧！</p>'; 
+            grid.innerHTML = '<p style="text-align:center; color:#999; grid-column:1/-1; padding:30px;">尚無紀錄！趕緊生成您的第一部商業影片吧！</p>'; 
             return; 
         }
         
