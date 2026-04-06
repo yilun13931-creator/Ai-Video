@@ -89,7 +89,7 @@ def generate_video(
         if model_type == "sora2":
             url = f"{DEFAPI_BASE_URL}/api/sora2/gen"
             payload = {
-                "model": "openai/sora-2-stable", # 💡 關鍵修正：精準指定 OpenAI 原廠模型名稱
+                "model": "sora-2-stable", # 💡 關鍵修正：依照報錯提示，移除 openai/ 前綴
                 "prompt": prompt,
                 "duration": str(duration),
                 "image_urls": [public_image_url] # 💡 讓 Sora2 強制看商品圖
