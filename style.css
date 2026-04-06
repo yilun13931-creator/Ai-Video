@@ -84,10 +84,10 @@ video { width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 .history-card:hover { box-shadow: 0 8px 15px rgba(0,0,0,0.1); transform: translateY(-3px); }
 .history-video { 
     width: 100%; 
-    aspect-ratio: 9 / 16; /* 💡 關鍵 1：強制容器保持 9:16 的直式完美比例 */
+    /* 💡 移除原本死板的 aspect-ratio，讓系統自動判斷橫式/直式 */
     height: auto; 
-    max-height: 450px;    /* 💡 關鍵 2：加上高度上限，避免在手機上佔滿整個螢幕 */
-    object-fit: contain;  /* 💡 關鍵 3：完整顯示整支影片，絕對不裁切任何邊緣 */
+    max-height: 400px;    /* 💡 加上高度上限，避免直立影片在手機上佔滿整個螢幕 */
+    object-fit: contain;  /* 💡 完整顯示整支影片，絕對不裁切任何邊緣 */
     background: #000; 
 }
 .history-info { padding: 12px; flex-grow: 1; display: flex; flex-direction: column; gap: 6px; }
