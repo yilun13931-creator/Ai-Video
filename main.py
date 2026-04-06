@@ -54,7 +54,6 @@ def cleanup_old_files():
 def generate_video(
     request: Request, 
     background_tasks: BackgroundTasks,
-    # 💡 鐵血防呆：這裡不再使用 Optional！後端也強制要求必須帶有圖片檔案
     image: UploadFile = File(...), 
     prompt: str = Form(...),
     api_key: str = Form(...),
@@ -85,14 +84,17 @@ def generate_video(
         host = request.url.netloc
         public_image_url = f"{scheme}://{host}/uploads/{unique_filename}"
 
-        # --- 步驟 2：動態切換路由，並強制附帶商品圖網址與精準模型名稱 ---
+        # --- 步驟 2：動態切換路由，並精準對齊參數名稱 ---
         if model_type == "sora2":
             url = f"{DEFAPI_BASE_URL}/api/sora2/gen"
             payload = {
-                "model": "sora-2-stable", # 💡 關鍵修正：依照報錯提示，移除 openai/ 前綴
+                "model": "sora-2-stable",
                 "prompt": prompt,
                 "duration": str(duration),
-                "image_urls": [public_image_url] # 💡 讓 Sora2 強制看商品圖
+                # 💡 終極關鍵修正：完全照抄 sora_client.py 的標準格式
+                "aspect_ratio": "9:16",
+                "must_width": 1,
+                "images": [public_image_url] 
             }
         else:
             url = f"{DEFAPI_BASE_URL}/api/grok-imagine-video/gen"
@@ -101,10 +103,11 @@ def generate_video(
                 "prompt": prompt,
                 "duration": str(duration),
                 "aspect_ratio": "9:16",
-                "image_urls": [public_image_url] # 💡 讓 Grok 強制看商品圖
+                # 💡 Grok 規定要用 image_urls
+                "image_urls": [public_image_url] 
             }
 
-        # --- 步驟 3：正式發送請求至 AI 伺服器 (附帶防卡死超時設定) ---
+        # --- 步驟 3：正式發送請求至 AI 伺服器 ---
         response = requests.post(url, headers=headers, json=payload, timeout=60)
         
         if response.status_code != 200:
