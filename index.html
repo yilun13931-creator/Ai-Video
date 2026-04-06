@@ -41,12 +41,12 @@
 
                     <div class="section-title">🤖 步驟 2：選擇生成模型</div>
                     <select id="modelSelect" onchange="handleModelChange()">
-                        <option value="grok" selected>Grok Imagine (速度快 / 適合動態展示)</option>
-                        <option value="sora2">Sora 2 Stable (高階運算 / 適合精緻廣告)</option>
+                        <option value="grok">Grok Imagine</option>
+                        <option value="sora2" selected>Sora 2 Stable</option>
                     </select>
 
                     <div id="imageUploadSection">
-                        <div class="section-title">🖼️ 步驟 3：上傳商品參考圖 <span style="color:red;">(商業廣告必填)</span></div>
+                        <div class="section-title">🖼️ 步驟 3：上傳商品參考圖 <span style="color:red;">(必填)</span></div>
                         <label>請提供一張清晰的商品圖片作為影片開頭</label>
                         <input type="file" id="imageInput" accept="image/jpeg, image/png, image/webp" onchange="previewImage()">
                         <p class="hint">※ 系統將強制作為影片首幀，確保商品一致性。支援自動 9:16 無損填滿。</p>
