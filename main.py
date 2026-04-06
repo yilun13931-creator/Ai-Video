@@ -73,7 +73,6 @@ def generate_video(
         }
         
         # --- 步驟 1：強制處理與儲存圖片 ---
-        # 因為前面已經規定必填，所以這裡絕對拿得到圖片，邏輯變得非常乾淨！
         unique_filename = f"img_{int(time.time())}.jpg"
         file_path = os.path.join(UPLOAD_DIR, unique_filename)
         
@@ -86,10 +85,11 @@ def generate_video(
         host = request.url.netloc
         public_image_url = f"{scheme}://{host}/uploads/{unique_filename}"
 
-        # --- 步驟 2：動態切換路由，並強制附帶商品圖網址 ---
+        # --- 步驟 2：動態切換路由，並強制附帶商品圖網址與精準模型名稱 ---
         if model_type == "sora2":
             url = f"{DEFAPI_BASE_URL}/api/sora2/gen"
             payload = {
+                "model": "openai/sora-2-stable", # 💡 關鍵修正：精準指定 OpenAI 原廠模型名稱
                 "prompt": prompt,
                 "duration": str(duration),
                 "image_urls": [public_image_url] # 💡 讓 Sora2 強制看商品圖
