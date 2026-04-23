@@ -103,8 +103,8 @@ def generate_video(
                 "prompt": prompt,
                 "duration": str(duration),
                 "aspect_ratio": "9:16",
-                # 💡 Grok 規定要用 image_urls
-                "image_urls": [public_image_url] 
+                # 💡 修正：依照最新官方文件，Grok 也必須使用 images，已將原本的 image_urls 替換
+                "images": [public_image_url] 
             }
 
         # --- 步驟 3：正式發送請求至 AI 伺服器 ---
